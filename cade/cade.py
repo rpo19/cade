@@ -68,16 +68,16 @@ class CADE:
         else:
             if self.compass.layer1_size != self.size:
                 return Exception("Compass and Slice have different vector sizes")
-            vocab_m = model.wv.index2word
-            indices = [self.compass.wv.vocab[w].index for w in vocab_m]
+            vocab_m = model.wv.index_to_key
+            indices = [self.compass.wv.key_to_index[w] for w in vocab_m]
 
             # intialize syn1neg with compass embeddings
             new_syn1neg = np.array([self.compass.syn1neg[index] for index in indices])
             model.syn1neg = new_syn1neg
 
             if self.init_mode == "both":
-                new_syn0 = np.array([self.compass.wv.syn0[index] for index in indices])
-                model.wv.syn0 = new_syn0
+                new_syn0 = np.array([self.compass.wv.vectors[index] for index in indices])
+                model.wv.vectors = new_syn0
 
         model.learn_hidden = False
         model.alpha = self.dynamic_alpha
@@ -98,13 +98,13 @@ class CADE:
     def train_model(self, sentences):
         model = None
         if self.compass == None or self.init_mode != "copy":
-            model = gensim.models.word2vec.Word2Vec(sg=self.sg, size=self.size, alpha=self.static_alpha, iter=self.static_iter,
+            model = gensim.models.word2vec.Word2Vec(sg=self.sg, vector_size=self.size, alpha=self.static_alpha, epochs=self.static_iter,
                              negative=self.negative,
                              window=self.window, min_count=self.min_count, workers=self.workers)
             model.build_vocab(sentences, trim_rule=self.internal_trimming_rule if self.compass != None else None)
         if self.compass != None:
             model = self.initialize_from_compass(model)
-        model.train(sentences, total_words=sum([len(s) for s in sentences]), epochs=model.iter, compute_loss=True)
+        model.train(sentences, total_words=sum([len(s) for s in sentences]), epochs=model.epochs, compute_loss=True)
         return model
 
     def train_compass(self, compass_text, overwrite=False, save=False):
@@ -123,7 +123,7 @@ class CADE:
             if save:
                 self.compass.save(os.path.join(self.opath, "compass.model"))
 
-        self.gvocab = self.compass.wv.vocab
+        self.gvocab = list(self.compass.wv.key_to_index.keys())
 
     def train_slice(self, slice_text, save=False):
         """
